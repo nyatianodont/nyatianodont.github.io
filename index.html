@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Карта</title>
+<style>
+body {
+    margin: 0;
+    font-family: sans-serif;
+    overflow: hidden;
+}
+
+#mapContainer {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#mapImage {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+}
+
+.point {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    background: #ff2a2a; /* внутренний слой */
+    z-index: 5;
+}
+
+#panelTitle {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+#panelTitle::after {
+    content: "";
+    display: block;
+    width: 60%;
+    height: 3px;
+    background: red;
+    margin-top: 6px;
+    border-radius: 2px;
+}
+
+.point::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: rgba(255, 0, 0, 0.4);
+    z-index: -1;
+}
+
+.point::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    background: rgba(255, 0, 0, 0.15);
+    z-index: -2;
+}
+
+
+.point-label {
+    position: absolute;
+    color: white;
+    font-size: 12px;
+    white-space: nowrap;
+    transform: translate(-50%, -180%);
+    pointer-events: none;
+    text-shadow:
+        0 0 6px black,
+        0 0 12px black,
+        0 0 18px black
+}
+
+
+#menuButton {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: #333;
+    color: white;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+    z-index: 10;
+}
+
+#menu {
+    position: fixed;
+    top: 50px;
+    right: 10px;
+
+    background: #1e1e1e;
+    color: white;
+    padding: 14px 16px 16px 16px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+
+    display: none;
+    z-index: 10;
+    min-width: 160px;
+
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+
+    overflow: hidden;
+    position: fixed;
+}
+
+#menu::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 3px;
+    background: red;
+}
+
+
+#sidePanel {
+    position: fixed;
+    left: -24%;
+    top: 0;
+    width: 25%;
+    height: 100%;
+    background: #1e1e1e;
+    color: white;
+    padding: 20px;
+    box-sizing: border-box;
+    transition: left 0.3s;
+    overflow-y: auto;
+    z-index: 9;
+}
+
+#sidePanel.open {
+    left: 0;
+}
+#panelDesc {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#coordsBox {
+    position: fixed;
+    left: 15px;
+    bottom: 15px;
+
+    background: #1e1e1e;
+    color: white;
+    padding: 12px 16px 14px 16px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    font-size: 14px;
+
+    display: none;
+    z-index: 10;
+    min-width: 120px;
+
+    position: fixed;
+    overflow: hidden;
+}
+
+#coordsBox::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 3px;
+    background: red;
+}
+
+#menu label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-size: 14px;
+    gap: 10px;
+}
+
+::selection {
+    background: #cc0000;
+    color: white;
+}
+
+::-moz-selection {
+    background: #cc0000;
+    color: white;
+}
+
+input[type="checkbox"] {
+    accent-color: #cc0000;
+}
+
+input {
+    accent-color: #cc0000;
+}
+
+:focus {
+    outline: 2px solid #cc0000;
+    outline-offset: 2px;
+}
+
+
+</style>
+</head>
+<body>
+
+<button id="menuButton">☰</button>
+
+<div id="menu">
+    <label>
+        Регионы
+        <input type="checkbox" id="regionsToggle">
+    </label> 
+    <label>
+        Координаты
+        <input type="checkbox" id="coordsToggle">
+    </label>
+</div>
+
+<div id="sidePanel">
+    <h2 id="panelTitle"></h2>
+    <p id="panelDesc"></p>
+</div>
+
+<div id="coordsBox">
+    X: <span id="coordX">0</span><br>
+    Y: <span id="coordY">0</span>
+</div>
+
+<div id="mapContainer">
+    <img id="mapImage" src="map_without_regions.png">
+</div>
+
+<script>
+const menuButton = document.getElementById("menuButton");
+const menu = document.getElementById("menu");
+const toggle = document.getElementById("regionsToggle");
+const mapContainer = document.getElementById("mapContainer");
+const sidePanel = document.getElementById("sidePanel");
+const panelTitle = document.getElementById("panelTitle");
+const panelDesc = document.getElementById("panelDesc");
+const mapImage = document.getElementById("mapImage");
+const coordsToggle = document.getElementById("coordsToggle");
+const coordsBox = document.getElementById("coordsBox");
+const coordX = document.getElementById("coordX");
+const coordY = document.getElementById("coordY");
+
+let pointsData = [];
+let pointsElements = [];
+
+menuButton.onclick = () => {
+    menu.style.display = menu.style.display === "flex" ? "none" : "flex";
+};
+
+
+toggle.onchange = async () => {
+    if (toggle.checked) {
+        mapImage.src = "map_with_regions.png";
+        await new Promise(r => mapImage.onload = r);
+
+        await loadPoints();
+        drawPoints();
+    } else {
+        mapImage.src = "map_without_regions.png";
+        await new Promise(r => mapImage.onload = r);
+
+        clearPoints();
+        closePanel();
+    }
+};
+
+
+async function loadPoints() {
+    const res = await fetch("points.json");
+    pointsData = await res.json();
+}
+
+function drawPoints() {
+    clearPoints();
+
+    const rect = mapImage.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+
+    pointsData.forEach(p => {
+        const x = rect.left + p.x * width;
+        const y = rect.top + p.y * height;
+
+        const dot = document.createElement("div");
+        dot.className = "point";
+        dot.style.left = x + "px";
+        dot.style.top = y + "px";
+
+        const label = document.createElement("div");
+        label.className = "point-label";
+        label.innerText = p.name;
+        label.style.left = x + "px";
+        label.style.top = y + "px";
+
+        dot.onclick = () => openPanel(p);
+
+        document.body.appendChild(dot);
+        document.body.appendChild(label);
+
+        pointsElements.push(dot, label);
+    });
+}
+
+function clearPoints() {
+    pointsElements.forEach(el => el.remove());
+    pointsElements = [];
+}
+
+function openPanel(p) {
+    panelTitle.innerText = p.name;
+    panelDesc.innerText = p.description;
+    sidePanel.classList.add("open");
+}
+
+function closePanel() {
+    sidePanel.classList.remove("open");
+}
+
+window.onresize = () => {
+    if (toggle.checked) {
+        drawPoints();
+    }
+};
+
+coordsToggle.onchange = () => {
+    coordsBox.style.display = coordsToggle.checked ? "block" : "none";
+};
+
+mapContainer.addEventListener("mousemove", (e) => {
+    if (!coordsToggle.checked) return;
+
+    const rect = mapImage.getBoundingClientRect();
+    if (
+        e.clientX < rect.left ||
+        e.clientX > rect.right ||
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom
+    ) return;
+
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    coordX.innerText = x.toFixed(3);
+    coordY.innerText = y.toFixed(3);
+});
+
+
+
+document.addEventListener("click", (e) => {
+    const clickedInsidePanel = sidePanel.contains(e.target);
+    const clickedPoint = e.target.classList.contains("point");
+    const clickedMenu = menu.contains(e.target) || menuButton.contains(e.target);
+
+    if (!clickedInsidePanel && !clickedPoint && !clickedMenu) {
+        closePanel();
+    }
+});
+
+</script>
+
+</body>
+</html>
